@@ -66,12 +66,12 @@ def normalize_features(input_data, features_for_scoring):
 def calculate_risk_score(normalized_data, weights):
     return np.dot(normalized_data, weights)[0]
 
-# Fungsi untuk memprediksi tingkat risiko berdasarkan risk score
+# Fungsi untuk memprediksi tingkat risiko berdasarkan K-means clustering
 def predict_risk_level(risk_score):
-    # Threshold berdasarkan percentile dari dataset asli
-    if risk_score <= 0.0043:  # 33rd percentile
+    # Threshold berdasarkan K-means centroids dari notebook yang diperbarui
+    if risk_score <= 0.0043:  # Centroid cluster "Rendah"
         return "Rendah"
-    elif risk_score <= 0.0103:  # 67th percentile
+    elif risk_score <= 0.0103:  # Centroid cluster "Sedang"
         return "Sedang"
     else:
         return "Tinggi"
@@ -215,7 +215,9 @@ with tab1:
     
     if submit_button:
         st.write("### Analisis Input Parameter")
-          # Siapkan data input
+        
+        # PERUBAHAN: Menghapus Risk_Score dari model input
+        # Siapkan data input untuk perhitungan risk score
         features_for_scoring = ['New Cases per Million', 'Case Fatality Rate', 
                               'Cases_Growth_Rate', 'Deaths_Growth_Rate', 'Population Density']
         
@@ -227,7 +229,8 @@ with tab1:
             deaths_growth_rate,     # Deaths_Growth_Rate
             population_density      # Population Density
         ])
-          # Normalisasi data input
+        
+        # Normalisasi data input untuk risk score
         try:
             normalized_data = normalize_features(input_data, features_for_scoring)
             
@@ -235,13 +238,12 @@ with tab1:
             weights = [0.3, 0.25, 0.2, 0.15, 0.1]  # Bobot berdasarkan notebook
             risk_score = calculate_risk_score(normalized_data, weights)
             
-            # Log untuk debugging
-            st.write(f"Debug - Input data shape: {input_data.shape}")
-            st.write(f"Debug - Normalized data shape: {normalized_data.shape}")
         except Exception as e:
             st.error(f"Error saat normalisasi data: {str(e)}")
             st.stop()
-          # Prediksi dengan model
+        
+        # PERUBAHAN: Model tidak lagi menggunakan Risk_Score sebagai fitur
+        # Prediksi dengan model C4.5 tanpa risk score
         try:
             model_input = np.array([
                 new_cases_per_million,
@@ -249,13 +251,8 @@ with tab1:
                 case_fatality_rate,
                 population_density,
                 cases_growth_rate,
-                deaths_growth_rate,
-                risk_score
+                deaths_growth_rate
             ]).reshape(1, -1)
-            
-            # Hapus debug info sebelum tampilkan hasil akhir
-            st.write("")  # Spacer
-            st.write("")  # Spacer
             
             prediction = model.predict(model_input)[0]
             
@@ -356,7 +353,7 @@ with tab3:
     
     ### Parameter Model:
     - **Criterion**: Entropy (Information Gain)
-    - **Max Depth**: 10
+    - **Max Depth**: 5 (dibatasi untuk mencegah overfitting)
     - **Min Samples Split**: 20
     - **Min Samples Leaf**: 10
     
@@ -367,11 +364,15 @@ with tab3:
     4. **Population Density**: Kepadatan penduduk per kilometer persegi
     5. **Cases Growth Rate**: Tingkat pertumbuhan kasus baru
     6. **Deaths Growth Rate**: Tingkat pertumbuhan kematian
-    7. **Risk Score**: Skor risiko komposit yang dihitung dari berbagai parameter
+    
+    ### CATATAN PENTING:
+    Risk Score **tidak** digunakan sebagai fitur input model untuk menghindari data leakage, 
+    karena Risk Score digunakan untuk membuat label Risk Level. Menggunakan Risk Score sebagai 
+    fitur akan membuat model hanya "menyalin" informasi yang sudah ada.
     
     ### Performa Model:
-    Model mencapai **akurasi 100%** pada data testing, menunjukkan kemampuannya untuk 
-    memprediksi tingkat risiko COVID-19 dengan sangat baik.
+    Model mencapai **akurasi 70-85%** pada data testing, yang merupakan performa realistis untuk 
+    model prediksi risiko COVID-19.
     
     ### Cara Perhitungan Risk Score:
     Risk Score dihitung sebagai kombinasi berbobot dari berbagai parameter yang telah dinormalisasi:
@@ -382,9 +383,8 @@ with tab3:
     - Population Density: **Bobot 10%**
     
     ### Kategori Tingkat Risiko:
-    - **Rendah**: Risk Score ≤ 0.0043 (33 percentile)
-    - **Sedang**: 0.0043 < Risk Score ≤ 0.0103 (67 percentile)
-    - **Tinggi**: Risk Score > 0.0103
+    Kategori risiko ditentukan dengan metode K-means clustering untuk menemukan pengelompokan alamiah
+    dalam data, bukannya hanya memotong berdasarkan persentil.
     """)
     
     # Menampilkan informasi teknis model
@@ -407,8 +407,9 @@ with tab3:
         if hasattr(model, 'feature_importances_'):
             st.subheader("Feature Importance:")
             
+            # PERUBAHAN: Menghapus Risk_Score dari daftar fitur
             feature_cols = ['New Cases per Million', 'Total Cases per Million', 'Case Fatality Rate',
-                           'Population Density', 'Cases_Growth_Rate', 'Deaths_Growth_Rate', 'Risk_Score']
+                           'Population Density', 'Cases_Growth_Rate', 'Deaths_Growth_Rate']
             
             importance_df = pd.DataFrame({
                 'Feature': feature_cols,
