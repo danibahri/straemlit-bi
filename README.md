@@ -60,6 +60,5 @@ Aplikasi ini menggunakan model yang dilatih dengan dataset COVID-19 Indonesia (c
 ## Struktur Model
 
 - **Algoritma**: C4.5 (Decision Tree dengan kriteria entropy)
-- **Feature Importance**: Risk_Score adalah feature terpenting (1.0)
 
 ## Tugas Mata Kuliah Kecerdasan Bisnis
